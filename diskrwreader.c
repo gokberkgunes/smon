@@ -8,10 +8,10 @@
 
 
 static char* setpath(char *diskname);
-static void setflag(int signum);
+static void setflag();
 static void readline(char **targetstr, FILE *fpath);
 static void rwloop(char *path);
-static void sslptime(char *flag, char *slptime);
+static long str2pi(char *flag, char *slptime);
 static void usage();
 
 
@@ -20,15 +20,14 @@ static long SLEEPAMT = 1;
 volatile sig_atomic_t rwflag = 0;
 
 
+/* This function reads the given argument diskname and transforms it
+ * into the path ready to be read.
+ */
 char*
 setpath(char *diskname)
 {
-        /* This function reads the given argument diskname and transforms it
-         * into the path ready to be read */
-        size_t wrtnbyte;
-	char *path;
-
-	path = (char*)malloc(PATHSIZE*sizeof(char));
+        int wrtnbyte;
+	char *path = (char*)malloc(PATHSIZE*sizeof(char));
 
 	if (path == NULL) {
 		fprintf(stderr, "ERROR: cannot alocate memory.\n");
@@ -44,7 +43,7 @@ setpath(char *diskname)
 	return path;
 }
 void
-setflag(int signum)
+setflag()
 {
 	rwflag = 1;
 }
@@ -55,12 +54,11 @@ readline(char **targetstr, FILE *fpath)
 	ssize_t nchars;
 	size_t allocsize = 256*sizeof(char);
 
+	//*targetstr = (char *) malloc(allocsize*sizeof(char));
 	nchars = getline(targetstr, &allocsize, fpath);
 	if (nchars < 0) {
 		fprintf(stderr, "ERROR: failure to read given disk data\n");
-		/* free the memory if not NULL */
-		if (targetstr != NULL)
-			free(targetstr);
+		free(*targetstr);
 		exit(1);
 	}
 }
@@ -68,7 +66,7 @@ readline(char **targetstr, FILE *fpath)
 void
 rwloop(char *path)
 {
-	FILE *fp;
+	FILE *fp = NULL;
 	char *diskstat = NULL;
 	unsigned long rwsector[2][2] = {{0, 0}, {0, 0}};
 	float rwspeed[2] = {0, 0};
@@ -95,11 +93,8 @@ rwloop(char *path)
 	/* register signal handler for SIGINT */
 	while (!rwflag) {
 		sleep(SLEEPAMT);
-
-
 		for (int i = 0; i < 2; i++)
 			rwsector[i][0] = rwsector[i][1];
-
 		fp = fopen(path, "r");
 		readline(&diskstat, fp);
 		fclose(fp);
@@ -113,32 +108,35 @@ rwloop(char *path)
 	}
 	if (rwflag)
 		printf("SIGINT received, exiting.\n");
-
-
 	free(diskstat);
 }
 
-/* Gets -t flag's value and set it to global variable SLEEPAMT */
-void
-sslptime(char *flag, char *slptime)
+/* Converts strings to postive integers */
+long
+str2pi(char *flag, char *slptime)
 {
 
-	char *ptr;
-	SLEEPAMT = strtol(slptime, &ptr, 10);
+	char *ptr = NULL;
+	long retval = 1;
+	retval = strtol(slptime, &ptr, 10);
 
-	if (*ptr != '\0') {
-		fprintf(stderr, "ERROR: Non-integer value for <%s>.\n", flag);
+	if (ptr == slptime) {
+		fprintf(stderr, "ERROR: Not a decimal in %s.\n", flag);
 		usage();
-	} else if (SLEEPAMT < 0 || SLEEPAMT > INT_MAX) {
-		fprintf(stderr, "ERROR: Bad value for <%s>.\n", flag);
+	} else if (*ptr != '\0') {
+		fprintf(stderr, "ERROR: Extra values in %s.\n", flag);
+		usage();
+	} else if (retval < 1 || retval > INT_MAX) { /* INT_MAX's enough */
+		fprintf(stderr, "ERROR: Bad value for %s.\n", flag);
 		usage();
 	}
+	return retval;
 }
 
 void
 usage()
 {
-	fprintf(stderr, "\nUsage: diskmon <diskname> [-t <int>]\n");
+	fprintf(stderr, "Usage: diskmon <diskname> [-t <int>]\n");
 	exit(1);
 }
 
@@ -149,8 +147,9 @@ main(int argc, char *argv[])
 		usage();
 
 	for (int i = 2; i < argc; i++)
+		/* if -t is given, check there is a following value exists */
 		if (!strcmp(argv[i], "-t") && argv[++i] && *argv[i] != '\0')
-			sslptime(argv[i-1], argv[i]);
+			SLEEPAMT = str2pi(argv[i-1], argv[i]);
 
 	char *path = setpath(argv[1]);
 	rwloop(path);
