@@ -151,5 +151,7 @@ main(int argc, char *argv[])
 
 	char *path = setpath(argv[1]);
 	rwloop(path);
+	free(path);
+
 	return 0;
 }
