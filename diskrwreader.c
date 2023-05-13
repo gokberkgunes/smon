@@ -8,11 +8,11 @@
 
 
 static char* setpath(char *diskname);
-static void setflag();
+static void setflag(int signum);
 static void readline(char *targetstr, size_t allocsize, FILE *fpath);
 static void rwloop(char *path);
 static long str2pi(char *flag, char *slptime);
-static void usage();
+static void usage(void);
 
 
 static int  PATHSIZE = 128;
@@ -43,8 +43,10 @@ setpath(char *diskname)
 	return path;
 }
 void
-setflag()
+setflag(int signum)
 {
+
+	(void)signum; /* unused */
 	rwflag = 1;
 }
 
@@ -132,7 +134,7 @@ str2pi(char *flag, char *slptime)
 }
 
 void
-usage()
+usage(void)
 {
 	fprintf(stderr, "Usage: diskmon <diskname> [-t <int>]\n");
 	exit(1);
