@@ -9,7 +9,7 @@
 
 static char* setpath(char *diskname);
 static void setflag(int signum);
-static void readline(char *targetstr, size_t allocsize, FILE *fpath);
+static void readline(char **targetstr, size_t tstrlen, FILE *fpath);
 static void rwloop(char *path);
 static long str2pi(char *flag, char *slptime);
 static void usage(void);
@@ -51,14 +51,14 @@ setflag(int signum)
 }
 
 void
-readline(char *targetstr, size_t tstrlen, FILE *fpath)
+readline(char **targetstr, size_t tstrlen, FILE *fpath)
 {
 	ssize_t nchars;
-	nchars = getline(&targetstr, &tstrlen, fpath);
+	nchars = getline(targetstr, &tstrlen, fpath);
 
 	if (nchars < 0) {
 		fprintf(stderr, "ERROR: failure to read given disk data\n");
-		free(targetstr);
+		free(*targetstr);
 		exit(1);
 	}
 }
@@ -68,7 +68,7 @@ rwloop(char *path)
 {
 	FILE *fp = NULL;
 	/* sizeof(char) is 1, no need to specify, similar to getline() impl. */
-	size_t ndiskstat = 200;
+	size_t ndiskstat = 100;
 	char *diskstat = (char *) malloc(ndiskstat*sizeof(char));;
 	unsigned long rwsector[2][2] = {{0, 0}, {0, 0}};
 	float rwspeed[2] = {0, 0};
@@ -82,7 +82,7 @@ rwloop(char *path)
 	}
 
 	/* Set disk values to memory */
-	readline(diskstat, ndiskstat, fp);
+	readline(&diskstat, ndiskstat, fp);
 	fclose(fp);
 
 	/* Set values for reading/writing counts in terms of sectors */
@@ -96,7 +96,7 @@ rwloop(char *path)
 		for (int i = 0; i < 2; i++)
 			rwsector[i][0] = rwsector[i][1];
 		fp = fopen(path, "r");
-		readline(diskstat, ndiskstat, fp);
+		readline(&diskstat, ndiskstat, fp);
 		fclose(fp);
 
 		sscanf(diskstat, "%*u %*u %lu %*u %*u %*u %lu", &rwsector[0][1], &rwsector[1][1]);
