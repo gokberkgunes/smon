@@ -2,7 +2,7 @@ CC = gcc
 
 BIN = smon
 # Directories which have header files.
-INCDIRS = .
+INCDIRS = . include
 # Directories which have source code files.
 SRCDIRS = . src
 # Object files stored here.
@@ -25,14 +25,15 @@ SRCFILES := $(foreach DIR,$(SRCDIRS),$(wildcard $(DIR)/*.c))
 # Get base names for all source files.
 SRCBASE  := $(notdir $(SRCFILES))
 # Substitude every *.c in $SRCFILES to $OBJFILES/*.o
-OBJFILES := $(patsubst %.c,$(OBJDIR)/%.o,$(SRCBASE))
+OBJFILES := $(patsubst %.c,$(OBJDIR)/%.o,$(SRCFILES))
 # Substitude every *.c in $SRCFILES to $DEPDIR/*.d (Inactive for now)
 #DEPFILES := $(patsubst %.c,$(DEPDIR)/%.d,$(SRCFILES))
+
 BINFILES := $(patsubst %.c,bin/%,$(SRCBASE))
 
 #all: $(BIN)
 
-all: $(BINFILES)
+all: $(BIN)
 
 # used for debugging purpose: print variables.
 makeinfo:
@@ -50,7 +51,7 @@ $(BIN): $(OBJFILES)
 
 # if/when needed: generate object files with <-c>.
 $(OBJFILES): $(OBJDIR)/%.o: %.c
-	mkdir -p $(OBJDIR)
+	mkdir -p $(patsubst %,$(OBJDIR)/%,$(SRCDIRS))
 	$(CC) $(CFLAGS) $(OPTFLAGS) $(DEPFLAGS) $(INCFLAGS) -c -o $@ $<
 
 
