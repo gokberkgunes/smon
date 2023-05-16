@@ -2,29 +2,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h>
+
 #include <signal.h>
+#include "../include/common.h"
 
-
-
-static char* setpath(char *diskname);
-static void setflag(int signum);
+static char* setdiskpath(char *diskname);
 static void readline(char **targetstr, size_t *tstrlen, FILE *fpath);
 static void rwloop(char *path);
-static long str2pi(char *flag, char *slptime);
-static void usage(void);
-
-
-static int  PATHSIZE = 128;
-static long SLEEPAMT = 1;
-volatile sig_atomic_t rwflag = 0;
+static int PATHSIZE = 128;
 
 
 /* This function reads the given argument diskname and transforms it
  * into the path ready to be read.
  */
 char*
-setpath(char *diskname)
+setdiskpath(char *diskname)
 {
         int wrtnbyte;
 	char *path = (char*)malloc(PATHSIZE*sizeof(char));
@@ -42,13 +34,6 @@ setpath(char *diskname)
 	}
 	return path;
 }
-void
-setflag(int signum)
-{
-
-	(void)signum; /* unused */
-	rwflag = 1;
-}
 
 void
 readline(char **targetstr, size_t *tstrlen, FILE *fpath)
@@ -57,9 +42,8 @@ readline(char **targetstr, size_t *tstrlen, FILE *fpath)
 	nchars = getline(targetstr, tstrlen, fpath);
 
 	if (nchars < 0) {
-		fprintf(stderr, "ERROR: failure to read given disk data\n");
 		free(*targetstr);
-		exit(1);
+		die("ERROR: failure to read given disk data file.");
 	}
 }
 
@@ -72,14 +56,12 @@ rwloop(char *path)
 	char *diskstat = (char *) malloc(ndiskstat*sizeof(char));;
 	unsigned long rwsector[2][2] = {{0, 0}, {0, 0}};
 	float rwspeed[2] = {0, 0};
-	float conv2mbs = 5e-4/SLEEPAMT;
+
 
 	/* Initialization of disk statistics */
 	fp = fopen(path, "r");
-	if (fp == NULL) {
-		fprintf(stderr, "ERROR: failure to open requested file.\n");
-		exit(1);
-	}
+	if (fp == NULL)
+		die("ERROR: failure to open requested file, %s.", path);
 
 	/* Set disk values to memory */
 	readline(&diskstat, &ndiskstat, fp);
@@ -92,7 +74,7 @@ rwloop(char *path)
 	signal(SIGINT, setflag);
 	/* register signal handler for SIGINT */
 	while (!rwflag) {
-		sleep(SLEEPAMT);
+		sleep(sleepamt);
 		for (int i = 0; i < 2; i++)
 			rwsector[i][0] = rwsector[i][1];
 		fp = fopen(path, "r");
@@ -102,7 +84,7 @@ rwloop(char *path)
 		sscanf(diskstat, "%*u %*u %lu %*u %*u %*u %lu", &rwsector[0][1], &rwsector[1][1]);
 
 		for (int i = 0; i < 2; i++)
-			rwspeed[i] = (rwsector[i][1]-rwsector[i][0])*conv2mbs;
+			rwspeed[i] = (rwsector[i][1]-rwsector[i][0])*sec2mbps;
 
 		printf("READ: %.1f MB/s, WRITE: %.1f MB/s\n", rwspeed[0], rwspeed[1]);
 	}
@@ -111,49 +93,32 @@ rwloop(char *path)
 	free(diskstat);
 }
 
-/* Converts strings to postive integers */
-long
-str2pi(char *flag, char *slptime)
-{
 
-	char *ptr = NULL;
-	long retval = 1;
-	retval = strtol(slptime, &ptr, 10);
-
-	if (ptr == slptime) {
-		fprintf(stderr, "ERROR: Not a decimal in %s.\n", flag);
-		usage();
-	} else if (*ptr != '\0') {
-		fprintf(stderr, "ERROR: Extra values in %s.\n", flag);
-		usage();
-	} else if (retval < 1 || retval > INT_MAX) { /* INT_MAX's enough */
-		fprintf(stderr, "ERROR: Bad value for %s.\n", flag);
-		usage();
-	}
-	return retval;
-}
-
-void
-usage(void)
-{
-	fprintf(stderr, "Usage: diskmon <diskname> [-t <int>]\n");
-	exit(1);
-}
 
 int
 main(int argc, char *argv[])
 {
-	if (argc < 2)
-		usage();
+	char *path  = NULL;
 
-	for (int i = 2; i < argc; i++)
+	for (int i = 1; i < argc; i++) {
 		/* if -t is given, check there is a following value exists */
-		if (!strcmp(argv[i], "-t") && argv[++i] && *argv[i] != '\0')
-			SLEEPAMT = str2pi(argv[i-1], argv[i]);
-
-	char *path = setpath(argv[1]);
-	rwloop(path);
-	free(path);
-
+		if (!strcmp(argv[i], "-t") && argv[i+1] && *argv[i+1] != '\0') {
+			i++;
+			sleepamt = arg2pi(argv[i-1], argv[i]);
+			sec2mbps = 5e-4/sleepamt;
+		} else if (!strcmp(argv[i], "-d") && argv[i+1] && *argv[i+1] != '\0') {
+			i++;
+			path = setdiskpath(argv[i]);
+		}
+		else {
+			die("%s", "ERROR: Bad argument given.");
+		}
+	}
+	if (path != NULL) {
+		rwloop(path);
+		free(path);
+	} else {
+		alldiskrw();
+	}
 	return 0;
 }

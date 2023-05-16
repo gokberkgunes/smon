@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h>
 #include <signal.h>
+#include "../include/common.h"
 
 typedef struct {
     char name[21];
@@ -11,7 +11,6 @@ typedef struct {
     unsigned long write;
 } diskdev;
 
-static void setflag(int);
 static void readlines(int n, char ***linearr, size_t *bufsize, FILE *fpath);
 static int rwloop(void);
 static int countlines(FILE *fpath);
@@ -21,35 +20,23 @@ static int countdevices(int n, char **linearr);
 static diskdev* getdiskdata(diskdev *disks, char **str, int nlines);
 
 
-static long SLEEPAMT = 5;
-volatile sig_atomic_t rwflag = 0;
-
-void
-setflag(int signum)
-{
-	(void)signum; /* unused */
-	rwflag = 1;
-}
-
 /*
  * ARGS:
  * - arg1: max number of lines to read,
  * - arg2: array to modify
- * - arg2: file path to read.
- * MODIFIES:
- * - arg1 is modified to number of sucessfully lines
+ * - arg4: buffersize to use
+ * - arg3: file path to read.
  * RETURNS:
- * - multi-dimensional char array.
- *
- * NOTE: One must free returned after the usage.
+ * - nothing
  */
 void
-readlines(int n, char ***linearr, size_t *bufsize, FILE *fpath)
+readlines(int n, char ***linearr, size_t *bufsize, FILE *fp)
 {
 	ssize_t nchars; /* num of read characters per line */
+	int lineno;
 
-	for (int lineno = 0; lineno < n; lineno++) {
-		nchars = getline(&(*linearr)[lineno], bufsize, fpath);
+	for (lineno = 0; lineno < n; lineno++) {
+		nchars = getline(&(*linearr)[lineno], bufsize, fp);
 
 		if (nchars < 0)
 			break;
@@ -59,6 +46,8 @@ readlines(int n, char ***linearr, size_t *bufsize, FILE *fpath)
 			(*linearr)[lineno][nchars-1] = '\0';
 
 	}
+	if (lineno == 1 && nchars < 0)
+		die("Given file has no lines to read.");
 }
 int
 countlines(FILE *fpath)
@@ -135,7 +124,7 @@ rwloop(void)
 	FILE *fp = NULL;
 	int nline, ndisk;
 	size_t bufsize = 100; /* initial malloc string length */
-	double conv2mbs = 5e-4/SLEEPAMT, rspd, wspd;
+	double conv2mbs = 5e-4/sleepamt, rspd, wspd;
 
 
 	/* Initialization of disk statistics */
@@ -176,7 +165,7 @@ rwloop(void)
 			olddisk[j].read  = disk[j].read;
 			olddisk[j].write = disk[j].write;
 		}
-		sleep(SLEEPAMT);
+		sleep(sleepamt);
 
 		/* If number of devices in the file changes, quit. This is done
 		 * to avoid checking and redefining everything from scratch.
@@ -219,14 +208,14 @@ isnum(char ch2chk)
 }
 
 int
-main(void)
+alldiskrw(void)
 {
 	while(1)
 		switch (rwloop()) {
 		case 0: /* rwloop sucesfully exits (SIGNAL received) */
 			return 0;
 		case 1:
-			fprintf(stderr, "Device change detected.\n");
+			fprintf(stderr, "Device changes detected.\n");
 			continue;
 		default:
 			return 0;
