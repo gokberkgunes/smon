@@ -30,6 +30,13 @@ die(const char *format, ...)
 	exit(1);
 }
 
+void
+usage(void)
+{
+	const char msg[] = "USAGE: smon [-d diskname] [-t seconds]";
+	die(msg);
+}
+
 /* Converts arguments (strings) to postive integers safely */
 long
 arg2pi(char *flag, char *val)
