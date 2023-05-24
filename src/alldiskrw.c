@@ -17,7 +17,7 @@ static int countlines(FILE *fpath);
 static int isnum(char ch2chk);
 static int isdevice(char *str);
 static int countdevices(int n, char **linearr);
-static diskdev* getdiskdata(diskdev *disks, char **str, int nlines);
+static void getdiskdata(diskdev *disks, char **str, int nlines);
 
 
 /*
@@ -96,7 +96,7 @@ isdevice(char *str)
 }
 
 /* This function increases the number of disks as found. */
-diskdev*
+void
 getdiskdata(diskdev *disks, char **str, int nlines)
 {
 	char name[21];
@@ -115,7 +115,7 @@ getdiskdata(diskdev *disks, char **str, int nlines)
 			ndsk++;
 		}
 	}
-	return disks;
+//	return disks;
 }
 
 int
