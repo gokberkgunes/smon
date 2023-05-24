@@ -93,8 +93,6 @@ rwloop(char *path)
 	free(diskstat);
 }
 
-
-
 int
 main(int argc, char *argv[])
 {
@@ -110,9 +108,8 @@ main(int argc, char *argv[])
 			i++;
 			path = setdiskpath(argv[i]);
 		}
-		else {
-			die("%s", "ERROR: Bad argument given.");
-		}
+		else
+			usage();
 	}
 	if (path != NULL) {
 		rwloop(path);
